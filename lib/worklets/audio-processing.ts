@@ -30,7 +30,6 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
 
   constructor() {
     super();
-    this.hasAudio = false;
     this.port.onmessage = (e) => {
       if (e.data.speaking !== undefined) {
         this.speaking = e.data.speaking;
@@ -50,7 +49,7 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
     if (!this.speaking) {
       return true; // Don't process audio if no speech is detected
     }
-    if (inputs[0].length) {
+    if (inputs[0] && inputs[0][0]) {
       const channel0 = inputs[0][0];
       this.processChunk(channel0);
     }
@@ -58,29 +57,24 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
   }
 
   sendAndClearBuffer(){
+    const bufferToSend = this.buffer.slice(0, this.bufferWriteIndex);
     this.port.postMessage({
       event: "chunk",
       data: {
-        int16arrayBuffer: this.buffer.slice(0, this.bufferWriteIndex).buffer,
+        int16arrayBuffer: bufferToSend.buffer,
       },
-    });
+    }, [bufferToSend.buffer]);
     this.bufferWriteIndex = 0;
   }
 
   processChunk(float32Array) {
-    const l = float32Array.length;
-    
-    for (let i = 0; i < l; i++) {
-      // convert float32 -1 to 1 to int16 -32768 to 32767
-      const int16Value = float32Array[i] * 32768;
-      this.buffer[this.bufferWriteIndex++] = int16Value;
-      if(this.bufferWriteIndex >= this.buffer.length) {
+    for (let i = 0; i < float32Array.length; i++) {
+      if (this.bufferWriteIndex >= this.buffer.length) {
         this.sendAndClearBuffer();
       }
-    }
-
-    if(this.bufferWriteIndex >= this.buffer.length) {
-      this.sendAndClearBuffer();
+      // convert float32 -1 to 1 to int16 -32768 to 32767 and clamp
+      const int16Value = Math.max(-32768, Math.min(32767, float32Array[i] * 32768));
+      this.buffer[this.bufferWriteIndex++] = int16Value;
     }
   }
 }
