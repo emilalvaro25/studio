@@ -87,7 +87,7 @@ export default function StreamingConsole() {
       },
       inputAudioTranscription: {},
       outputAudioTranscription: {},
-      systemInstruction: fullSystemPrompt,
+      systemInstruction: { text: fullSystemPrompt },
       tools: enabledTools,
     };
 
