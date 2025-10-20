@@ -4,19 +4,32 @@
 */
 import { FunctionCall, useSettings, useUI, useTools } from '@/lib/state';
 import c from 'classnames';
-import { DEFAULT_LIVE_API_MODEL, AVAILABLE_VOICES } from '@/lib/constants';
+import {
+  DEFAULT_LIVE_API_MODEL,
+  AVAILABLE_VOICES,
+  AVAILABLE_VOICE_EFFECTS,
+} from '@/lib/constants';
 import { useLiveAPIContext } from '@/contexts/LiveAPIContext';
 import { useState } from 'react';
 import ToolEditorModal from './ToolEditorModal';
+import { personas } from '@/lib/personas';
 
-const AVAILABLE_MODELS = [
-  DEFAULT_LIVE_API_MODEL
-];
+const AVAILABLE_MODELS = [DEFAULT_LIVE_API_MODEL];
 
 export default function Sidebar() {
   const { isSidebarOpen, toggleSidebar } = useUI();
-  const { systemPrompt, model, voice, setSystemPrompt, setModel, setVoice } =
-    useSettings();
+  const {
+    systemPrompt,
+    persona,
+    model,
+    voice,
+    voiceEffect,
+    setSystemPrompt,
+    setPersona,
+    setModel,
+    setVoice,
+    setVoiceEffect,
+  } = useSettings();
   const { tools, toggleTool, addTool, removeTool, updateTool } = useTools();
   const { connected } = useLiveAPIContext();
 
@@ -41,6 +54,19 @@ export default function Sidebar() {
         <div className="sidebar-content">
           <div className="sidebar-section">
             <fieldset disabled={connected}>
+              <label>
+                Persona
+                <select
+                  value={persona}
+                  onChange={e => setPersona(e.target.value)}
+                >
+                  {personas.map(p => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>
                 System Prompt
                 <textarea
@@ -67,6 +93,19 @@ export default function Sidebar() {
                   {AVAILABLE_VOICES.map(v => (
                     <option key={v} value={v}>
                       {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Voice Effect
+                <select
+                  value={voiceEffect}
+                  onChange={e => setVoiceEffect(e.target.value)}
+                >
+                  {AVAILABLE_VOICE_EFFECTS.map(effect => (
+                    <option key={effect} value={effect}>
+                      {effect}
                     </option>
                   ))}
                 </select>

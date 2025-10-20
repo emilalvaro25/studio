@@ -22,7 +22,7 @@ import cn from 'classnames';
 
 import { memo, ReactNode, useEffect, useRef, useState } from 'react';
 import { AudioRecorder } from '../../../lib/audio-recorder';
-import { useSettings, useTools, useLogStore } from '@/lib/state';
+import { useSettings, useTools, useLogStore, useUI } from '@/lib/state';
 
 import { useLiveAPIContext } from '../../../contexts/LiveAPIContext';
 
@@ -38,6 +38,7 @@ function ControlTray({ children }: ControlTrayProps) {
   const connectButtonRef = useRef<HTMLButtonElement>(null);
 
   const { client, connected, connect, disconnect } = useLiveAPIContext();
+  const { togglePermissionsModal } = useUI();
 
   useEffect(() => {
     if (!connected && connectButtonRef.current) {
@@ -45,20 +46,21 @@ function ControlTray({ children }: ControlTrayProps) {
     }
   }, [connected]);
 
-  // When disconnected or muted, reset all mic-related state.
+  // When disconnected, reset mic-related state.
   useEffect(() => {
     if (!connected) {
       setMuted(true);
-    }
-    if (!connected || muted) {
       setIsSpeaking(false);
     }
-  }, [connected, muted]);
+  }, [connected]);
 
-  // This effect hook manages the AudioRecorder lifecycle.
-  // It starts recording when the session is connected and the mic is unmuted,
-  // and stops otherwise.
+  // This effect hook manages the AudioRecorder data event listeners.
   useEffect(() => {
+    // Only set up listeners if we are connected.
+    if (!connected) {
+      return;
+    }
+
     const onData = (base64: string) => {
       // Send recorded audio data to the Live API.
       client.sendRealtimeInput([
@@ -72,23 +74,45 @@ function ControlTray({ children }: ControlTrayProps) {
     const onSpeechStart = () => setIsSpeaking(true);
     const onSpeechEnd = () => setIsSpeaking(false);
 
-    // The `start` method will automatically request microphone permissions.
-    if (connected && !muted && audioRecorder) {
-      audioRecorder.on('data', onData);
-      audioRecorder.on('speechStart', onSpeechStart);
-      audioRecorder.on('speechEnd', onSpeechEnd);
-      audioRecorder.start();
-    } else {
-      audioRecorder.stop();
-    }
+    audioRecorder.on('data', onData);
+    audioRecorder.on('speechStart', onSpeechStart);
+    audioRecorder.on('speechEnd', onSpeechEnd);
 
     return () => {
-      audioRecorder.stop();
       audioRecorder.off('data', onData);
       audioRecorder.off('speechStart', onSpeechStart);
       audioRecorder.off('speechEnd', onSpeechEnd);
     };
-  }, [connected, client, muted, audioRecorder]);
+  }, [connected, client, audioRecorder]);
+
+  // This effect hook manages the mute state of the AudioRecorder tracks.
+  useEffect(() => {
+    if (muted) {
+      audioRecorder.mute();
+      setIsSpeaking(false);
+    } else {
+      audioRecorder.unmute();
+    }
+  }, [muted, audioRecorder]);
+
+  const handleStartSession = async () => {
+    try {
+      await audioRecorder.start();
+      setMuted(false); // Unmute on successful start.
+      await connect();
+    } catch (error: any) {
+      if (error.message === 'PermissionDeniedError') {
+        togglePermissionsModal();
+      } else {
+        console.error('Failed to start audio recorder:', error);
+      }
+    }
+  };
+
+  const handleStopSession = () => {
+    disconnect();
+    audioRecorder.stop();
+  };
 
   // Toggles microphone input only when a session is active.
   const handleMicClick = () => {
@@ -143,7 +167,7 @@ function ControlTray({ children }: ControlTrayProps) {
         <button
           ref={connectButtonRef}
           className={cn('action-button connect-toggle', { connected })}
-          onClick={connected ? disconnect : connect}
+          onClick={connected ? handleStopSession : handleStartSession}
           title={connectButtonTitle}
         >
           <span className="material-symbols-outlined filled">

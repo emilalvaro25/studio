@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { customerSupportTools } from './tools/customer-support';
 import { personalAssistantTools } from './tools/personal-assistant';
 import { navigationSystemTools } from './tools/navigation-system';
+import { personas } from './personas';
 
 export type Template = 'customer-support' | 'personal-assistant' | 'navigation-system';
 
@@ -32,18 +33,34 @@ import {
  */
 export const useSettings = create<{
   systemPrompt: string;
+  persona: string;
   model: string;
   voice: string;
+  voiceEffect: string;
   setSystemPrompt: (prompt: string) => void;
+  setPersona: (personaName: string) => void;
   setModel: (model: string) => void;
   setVoice: (voice: string) => void;
+  setVoiceEffect: (effect: string) => void;
 }>(set => ({
-  systemPrompt: `You are a helpful and friendly AI assistant. Be conversational and concise.`,
+  systemPrompt: personas[0].systemPrompt,
+  persona: personas[0].name,
   model: DEFAULT_LIVE_API_MODEL,
   voice: DEFAULT_VOICE,
+  voiceEffect: 'None',
   setSystemPrompt: prompt => set({ systemPrompt: prompt }),
+  setPersona: personaName => {
+    const selectedPersona = personas.find(p => p.name === personaName);
+    if (selectedPersona) {
+      set({
+        persona: selectedPersona.name,
+        systemPrompt: selectedPersona.systemPrompt,
+      });
+    }
+  },
   setModel: model => set({ model }),
   setVoice: voice => set({ voice }),
+  setVoiceEffect: effect => set({ voiceEffect: effect }),
 }));
 
 /**
@@ -52,9 +69,14 @@ export const useSettings = create<{
 export const useUI = create<{
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
+  isPermissionsModalOpen: boolean;
+  togglePermissionsModal: () => void;
 }>(set => ({
   isSidebarOpen: true,
   toggleSidebar: () => set(state => ({ isSidebarOpen: !state.isSidebarOpen })),
+  isPermissionsModalOpen: false,
+  togglePermissionsModal: () =>
+    set(state => ({ isPermissionsModalOpen: !state.isPermissionsModalOpen })),
 }));
 
 /**

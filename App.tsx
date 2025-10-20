@@ -21,7 +21,9 @@
 import ControlTray from './components/console/control-tray/ControlTray';
 import ErrorScreen from './components/demo/ErrorScreen';
 import StreamingConsole from './components/demo/streaming-console/StreamingConsole';
-
+import { useUI } from './lib/state';
+import Modal from './components/Modal';
+import PermissionsInfo from './components/PermissionsInfo';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import { LiveAPIProvider } from './contexts/LiveAPIContext';
@@ -38,17 +40,22 @@ if (typeof API_KEY !== 'string') {
  * Manages video streaming state and provides controls for webcam/screen capture.
  */
 function App() {
+  const { isPermissionsModalOpen, togglePermissionsModal } = useUI();
   return (
     <div className="App">
       <LiveAPIProvider apiKey={API_KEY}>
         <ErrorScreen />
+        {isPermissionsModalOpen && (
+          <Modal onClose={togglePermissionsModal}>
+            <PermissionsInfo />
+          </Modal>
+        )}
         <Header />
         <Sidebar />
         <div className="streaming-console">
           <main>
             <div className="main-app-area">
               <StreamingConsole />
-
             </div>
 
             <ControlTray></ControlTray>

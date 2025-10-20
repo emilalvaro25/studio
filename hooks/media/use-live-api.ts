@@ -12,7 +12,7 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -43,8 +43,11 @@ export function useLiveApi({
 }: {
   apiKey: string;
 }): UseLiveApiResults {
-  const { model } = useSettings();
-  const client = useMemo(() => new GenAILiveClient(apiKey, model), [apiKey, model]);
+  const { model, voiceEffect } = useSettings();
+  const client = useMemo(
+    () => new GenAILiveClient(apiKey, model),
+    [apiKey, model],
+  );
 
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
 
@@ -52,11 +55,20 @@ export function useLiveApi({
   const [connected, setConnected] = useState(false);
   const [config, setConfig] = useState<LiveConnectConfig>({});
 
+  // When the voice effect changes, apply it to the audio streamer
+  useEffect(() => {
+    if (audioStreamerRef.current) {
+      audioStreamerRef.current.applyEffect(voiceEffect);
+    }
+  }, [voiceEffect]);
+
   // register audio for streaming server -> speakers
   useEffect(() => {
     if (!audioStreamerRef.current) {
       audioContext({ id: 'audio-out' }).then((audioCtx: AudioContext) => {
         audioStreamerRef.current = new AudioStreamer(audioCtx);
+        // Apply the initial effect when the streamer is created
+        audioStreamerRef.current.applyEffect(useSettings.getState().voiceEffect);
         audioStreamerRef.current
           .addWorklet<any>('vumeter-out', VolMeterWorket, (ev: any) => {
             setVolume(ev.data.volume);

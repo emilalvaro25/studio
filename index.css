@@ -1116,3 +1116,16 @@ form button:first-of-type {
 .grounding-chunks a:hover {
   text-decoration: underline;
 }
+
+.permissions-info {
+  text-align: center;
+}
+.permissions-info h2 {
+  color: var(--accent-amber);
+  margin-bottom: 16px;
+}
+.permissions-info p {
+  line-height: 1.6;
+  margin-bottom: 12px;
+  color: var(--Neutral-60);
+}

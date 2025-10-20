@@ -58,13 +58,38 @@ export class AudioRecorder {
 
   constructor(public sampleRate = 16000) {}
 
-  async start() {
+  mute() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => (track.enabled = false));
+    }
+  }
+
+  unmute() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => (track.enabled = true));
+    }
+  }
+
+  start(): Promise<void> {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error('Could not request user media');
+      return Promise.reject(new Error('Could not request user media'));
+    }
+
+    if (this.starting) {
+      return this.starting;
     }
 
     this.starting = new Promise(async (resolve, reject) => {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err: any) {
+        this.starting = null; // Reset starting promise on failure
+        if (err.name === 'NotAllowedError') {
+          return reject(new Error('PermissionDeniedError'));
+        }
+        return reject(err);
+      }
+
       this.audioContext = await audioContext({ sampleRate: this.sampleRate });
       this.source = this.audioContext.createMediaStreamSource(this.stream);
 
@@ -123,6 +148,8 @@ export class AudioRecorder {
       resolve();
       this.starting = null;
     });
+
+    return this.starting;
   }
 
   stop() {

@@ -38,6 +38,7 @@ export class AudioStreamer {
   public gainNode: GainNode;
   public source: AudioBufferSourceNode;
   private endOfQueueAudioSource: AudioBufferSourceNode | null = null;
+  private effectInputNode: AudioNode;
 
   public onComplete = () => {};
 
@@ -46,6 +47,7 @@ export class AudioStreamer {
     this.source = this.context.createBufferSource();
     this.gainNode.connect(this.context.destination);
     this.addPCM16 = this.addPCM16.bind(this);
+    this.effectInputNode = this.gainNode;
   }
 
   async addWorklet<T extends (d: any) => void>(
@@ -101,6 +103,77 @@ export class AudioStreamer {
       }
     }
     return float32Array;
+  }
+
+  public applyEffect(effectName: string) {
+    // Disconnect previous effect graph if it exists.
+    // The old nodes will be garbage collected.
+    if (this.effectInputNode && this.effectInputNode !== this.gainNode) {
+      this.effectInputNode.disconnect();
+    }
+
+    switch (effectName.toLowerCase()) {
+      case 'robot': {
+        const biquadFilter = this.context.createBiquadFilter();
+        biquadFilter.type = 'bandpass';
+        biquadFilter.frequency.value = 1500;
+        biquadFilter.Q.value = 5;
+
+        const waveShaper = this.context.createWaveShaper();
+        const curve = new Float32Array(256);
+        for (let i = 0; i < 256; i++) {
+          const x = (i * 2) / 255 - 1;
+          curve[i] =
+            (Math.exp(x) - Math.exp(-x)) / (Math.exp(1) - Math.exp(-1));
+        }
+        waveShaper.curve = curve;
+
+        biquadFilter.connect(waveShaper);
+        waveShaper.connect(this.gainNode);
+        this.effectInputNode = biquadFilter;
+        break;
+      }
+      case 'echo': {
+        const delay = this.context.createDelay(1.0);
+        delay.delayTime.value = 0.4;
+
+        const feedback = this.context.createGain();
+        feedback.gain.value = 0.5;
+
+        const wetGain = this.context.createGain();
+        wetGain.gain.value = 0.4; // Echo volume
+
+        // Feedback loop
+        delay.connect(feedback);
+        feedback.connect(delay);
+
+        // Wet signal path
+        delay.connect(wetGain);
+        wetGain.connect(this.gainNode);
+
+        // A new input node to mix dry and wet
+        const mixInput = this.context.createGain();
+        mixInput.connect(this.gainNode); // Dry signal
+        mixInput.connect(delay); // Send to delay for wet signal
+
+        this.effectInputNode = mixInput;
+        break;
+      }
+      case 'whisper': {
+        const highPass = this.context.createBiquadFilter();
+        highPass.type = 'highpass';
+        highPass.frequency.value = 2200;
+        highPass.Q.value = 2;
+
+        highPass.connect(this.gainNode);
+        this.effectInputNode = highPass;
+        break;
+      }
+      case 'none':
+      default:
+        this.effectInputNode = this.gainNode;
+        break;
+    }
   }
 
   addPCM16(chunk: Uint8Array) {
@@ -166,7 +239,7 @@ export class AudioStreamer {
       }
 
       source.buffer = audioBuffer;
-      source.connect(this.gainNode);
+      source.connect(this.effectInputNode);
 
       const worklets = registeredWorklets.get(this.context);
 
@@ -253,17 +326,3 @@ export class AudioStreamer {
     this.onComplete();
   }
 }
-
-// // Usage example:
-// const audioStreamer = new AudioStreamer();
-//
-// // In your streaming code:
-// function handleChunk(chunk: Uint8Array) {
-//   audioStreamer.handleChunk(chunk);
-// }
-//
-// // To start playing (call this in response to a user interaction)
-// await audioStreamer.resume();
-//
-// // To stop playing
-// // audioStreamer.stop();
