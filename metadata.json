@@ -1,0 +1,7 @@
+{
+  "name": "Eburon - LLM Studio",
+  "description": "Eburon LLM Studio for Conversational Agents.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
